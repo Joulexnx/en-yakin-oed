@@ -132,12 +132,22 @@ export default function Home() {
                 </p>
               </div>
 
-              <a
-                href="tel:112"
-                className="bg-red-600 hover:bg-red-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg"
-              >
-                🚨 112 Ara
-              </a>
+              <div className="flex flex-col gap-3">
+  <a
+    href={`https://www.google.com/maps/dir/${latitude},${longitude}/${nearestOed.lat},${nearestOed.lng}`}
+    target="_blank"
+    className="bg-blue-600 hover:bg-blue-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+  >
+    🧭 Yol Tarifi
+  </a>
+
+  <a
+    href="tel:112"
+    className="bg-red-600 hover:bg-red-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+  >
+    🚨 112 Ara
+  </a>
+</div>
             </div>
           </div>
         )}
