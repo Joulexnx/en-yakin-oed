@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { oeds } from "./data/oeds";
 import { getDistance } from "../lib/distance";
 
 import TYDModal from "../components/TYDModal";
 import VolunteerModal from "../components/VolunteerModal";
 import NearbyVolunteers from "../components/NearbyVolunteers";
+import { supabase } from "../lib/supabase";
 
 const AEDMap = dynamic(() => import("../components/AEDMap"), {
   ssr: false,
@@ -24,6 +25,25 @@ export default function Home() {
 
   const [volunteerName, setVolunteerName] = useState("");
   const [volunteers, setVolunteers] = useState<any[]>([]);
+const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
+
+  // Supabase'den gönüllüleri çek
+  const loadVolunteers = async () => {
+    const { data, error } = await supabase
+      .from("volunteers")
+      .select("*");
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setVolunteers(data || []);
+  };
+
+  useEffect(() => {
+    loadVolunteers();
+  }, []);
 
   const getLocation = () => {
     setLoading(true);
@@ -53,23 +73,28 @@ export default function Home() {
     );
   };
 
-  const registerVolunteer = () => {
+  const registerVolunteer = async () => {
     if (!volunteerName) return alert("Ad gir");
     if (!latitude || !longitude) return alert("Önce konum al");
 
-    setVolunteers((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    const { error } = await supabase
+      .from("volunteers")
+      .insert({
         name: volunteerName,
         lat: latitude,
         lng: longitude,
-        distance: 0,
-      },
-    ]);
+        certified: true,
+      });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
     setVolunteerName("");
     setShowVolunteerModal(false);
+    await loadVolunteers();
+
     alert("Gönüllü kaydedildi");
   };
 
@@ -84,7 +109,7 @@ export default function Home() {
       .filter((v) => v.distance < 5)
       .sort((a, b) => a.distance - b.distance);
 
-    setVolunteers(nearby);
+    setNearbyVolunteers(nearby);
 
     if (nearby.length === 0) {
       alert("Yakında gönüllü bulunamadı");
@@ -96,8 +121,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-red-50">
       <div className="max-w-6xl mx-auto px-4 py-6">
-
-        {/* HERO */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-red-600 via-red-500 to-rose-500 p-8 shadow-2xl">
           <h1 className="text-4xl md:text-5xl font-bold text-white">
             🚑 En Yakın OED
@@ -112,7 +135,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           <div className="bg-white rounded-2xl shadow-lg p-5">
             <p className="text-gray-500 text-sm">Toplam OED</p>
@@ -139,7 +161,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* BUTTONS */}
         <button
           onClick={getLocation}
           className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white py-5 rounded-2xl text-lg font-semibold shadow-xl"
@@ -154,48 +175,53 @@ export default function Home() {
           ❤️ Gönüllü Ol
         </button>
 
-        {/* CARD */}
         {nearestOed && (
           <div className="mt-6 bg-white rounded-3xl shadow-xl p-6">
             <div className="flex justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-bold">En Yakın OED</h2>
-
                 <p className="mt-2 text-lg font-medium">
                   📍 {nearestOed.name}
                 </p>
-
                 <p className="text-gray-500">
                   İlçe: {nearestOed.district}
                 </p>
-
                 <p className="mt-2 text-green-600 font-bold">
                   Mesafe: {nearestOed.distance.toFixed(2)} km
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={emergencyCall}
-                  className="bg-orange-500 text-white px-8 py-4 rounded-2xl font-bold"
-                >
-                  🚨 Acil Çağrı
-                </button>
+             <div className="flex flex-col gap-3 min-w-[220px]">
+  <a
+    href={`https://www.google.com/maps/dir/${latitude},${longitude}/${nearestOed.lat},${nearestOed.lng}`}
+    target="_blank"
+    className="bg-blue-600 hover:bg-blue-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+  >
+    🧭 Yol Tarifi
+  </a>
 
-                <a
-                  href="tel:112"
-                  className="bg-red-600 text-white px-8 py-4 rounded-2xl font-bold text-center"
-                >
-                  🚑 112 Ara
-                </a>
-              </div>
+  <button
+    onClick={emergencyCall}
+    className="bg-orange-500 hover:bg-orange-600 transition text-black px-8 py-4 rounded-2xl font-bold shadow-lg text-center w-full"
+  >
+    🚨 Acil Çağrı
+  </button>
+
+  <a
+    href="tel:112"
+    className="bg-red-600 hover:bg-red-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+  >
+    🚑 112 Ara
+  </a>
+</div>
             </div>
           </div>
         )}
 
-        <NearbyVolunteers volunteers={volunteers} />
+        {nearbyVolunteers.length > 0 && (
+  <NearbyVolunteers volunteers={nearbyVolunteers} />
+)}
 
-        {/* MAP */}
         <div className="mt-6 rounded-3xl overflow-hidden shadow-2xl border border-white w-full">
           {latitude && longitude ? (
             <AEDMap
@@ -203,6 +229,7 @@ export default function Home() {
               longitude={longitude}
               oeds={oeds}
               nearestOed={nearestOed}
+              volunteers={volunteers}
             />
           ) : (
             <div className="h-[550px] bg-gray-300 flex items-center justify-center">
@@ -211,7 +238,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* FLOATING */}
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999]">
           <div className="bg-white shadow-2xl rounded-2xl p-3 flex gap-3 border">
             <a

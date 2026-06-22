@@ -31,11 +31,20 @@ const greenIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
+/* Gönüllü marker */
+const volunteerIcon = new L.DivIcon({
+  html: `<div style="font-size:28px;">❤️</div>`,
+  className: "",
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
 type Props = {
   latitude: number;
   longitude: number;
   oeds: any[];
   nearestOed: any;
+  volunteers: any[]; // YENİ
 };
 
 export default function AEDMap({
@@ -43,6 +52,7 @@ export default function AEDMap({
   longitude,
   oeds,
   nearestOed,
+  volunteers, // YENİ
 }: Props) {
   return (
     <MapContainer
@@ -60,6 +70,20 @@ export default function AEDMap({
         <Popup>📍 Sen Buradasın</Popup>
       </Marker>
 
+      {/* Gönüllüler */}
+      {volunteers?.map((volunteer) => (
+        <Marker
+          key={volunteer.id}
+          position={[volunteer.lat, volunteer.lng]}
+          icon={volunteerIcon}
+        >
+          <Popup>
+            ❤️ Gönüllü: {volunteer.name}
+          </Popup>
+        </Marker>
+      ))}
+
+      {/* OED Markerları */}
       {oeds.map((oed) => {
         const isNearest = nearestOed?.id === oed.id;
 

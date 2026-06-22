@@ -14,7 +14,12 @@ export default function NearbyVolunteers({ volunteers }: any) {
             className="p-4 rounded-xl bg-orange-50 flex justify-between"
           >
             <span>{volunteer.name}</span>
-            <span>{volunteer.distance.toFixed(2)} km</span>
+
+            <span>
+              {typeof volunteer.distance === "number"
+                ? `${volunteer.distance.toFixed(2)} km`
+                : "Hazır"}
+            </span>
           </div>
         ))}
       </div>
