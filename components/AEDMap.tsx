@@ -47,7 +47,7 @@ export default function AEDMap({
   return (
     <MapContainer
       center={[latitude, longitude]}
-      zoom={14}
+      zoom={17}
       style={{ height: "650px", width: "100%" }}
     >
       <TileLayer
