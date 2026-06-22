@@ -119,12 +119,12 @@ export const oeds = [
     district: "Sincan"
   },
   {
-    id: 18,
-    name: "Kurtuluş Parkı",
-    lat: 39.928061,
-    lng: 32.866547,
-    district: "Çankaya"
-  },
+  id: 18,
+  name: "Kurtuluş Parkı (Güvenlik Ana Binası)",
+  lat: 39.9262624,
+  lng: 32.8619554,
+  district: "Çankaya"
+},
   {
     id: 19,
     name: "Göksu Parkı",
