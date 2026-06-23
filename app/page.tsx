@@ -193,25 +193,45 @@ useEffect(() => {
     alert("Gönüllü kaydedildi");
   };
 
-  const emergencyCall = () => {
-    if (!latitude || !longitude) return alert("Önce konum alın");
+  const emergencyCall = async () => {
+  if (!latitude || !longitude) return alert("Önce konum alın");
 
-    const nearby = volunteers
-      .map((v) => ({
-        ...v,
-        distance: getDistance(latitude, longitude, v.lat, v.lng),
-      }))
-      .filter((v) => v.distance < 5)
-      .sort((a, b) => a.distance - b.distance);
+  const nearby = volunteers
+    .map((v) => ({
+      ...v,
+      distance: getDistance(latitude, longitude, v.lat, v.lng),
+    }))
+    .filter((v) => v.distance < 5)
+    .sort((a, b) => a.distance - b.distance);
 
-    setNearbyVolunteers(nearby);
+  setNearbyVolunteers(nearby);
 
-    if (nearby.length === 0) {
-      alert("Yakında gönüllü bulunamadı");
-    } else {
-      alert(`${nearby.length} gönüllüye bildirim gönderildi`);
-    }
-  };
+  if (nearby.length === 0) {
+    alert("Yakında gönüllü bulunamadı");
+    return;
+  }
+
+  const playerIds = nearby
+    .map((v) => v.player_id)
+    .filter(Boolean);
+
+  console.log("PUSH GİDECEK PLAYER IDS:", playerIds);
+
+  const res = await fetch("/api/send-alert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      playerIds,
+    }),
+  });
+
+  const data = await res.json();
+  console.log("ONESIGNAL RESPONSE:", data);
+
+  alert(`${nearby.length} gönüllüye bildirim gönderildi`);
+};
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-red-50">
