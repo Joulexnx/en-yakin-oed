@@ -2,7 +2,14 @@
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import { useEffect } from "react";
 
 const redIcon = new L.Icon({
   iconUrl:
@@ -31,7 +38,6 @@ const greenIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-/* Gönüllü marker */
 const volunteerIcon = new L.DivIcon({
   html: `<div style="font-size:28px;">❤️</div>`,
   className: "",
@@ -44,46 +50,69 @@ type Props = {
   longitude: number;
   oeds: any[];
   nearestOed: any;
-  volunteers: any[]; // YENİ
+  volunteers: any[];
 };
+
+function MapUpdater({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+
+    const timer = setTimeout(() => {
+      map.flyTo([latitude, longitude], map.getZoom(), {
+        animate: true,
+        duration: 1,
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [latitude, longitude, map]);
+
+  return null;
+}
 
 export default function AEDMap({
   latitude,
   longitude,
   oeds,
   nearestOed,
-  volunteers, // YENİ
+  volunteers,
 }: Props) {
   return (
     <MapContainer
       center={[latitude, longitude]}
       zoom={17}
+      scrollWheelZoom={true}
       style={{ height: "650px", width: "100%" }}
     >
       <TileLayer
-        attribution={"© OpenStreetMap contributors"}
+        attribution="© OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Kullanıcı */}
+      <MapUpdater latitude={latitude} longitude={longitude} />
+
       <Marker position={[latitude, longitude]} icon={blueIcon}>
         <Popup>📍 Sen Buradasın</Popup>
       </Marker>
 
-      {/* Gönüllüler */}
       {volunteers?.map((volunteer) => (
         <Marker
           key={volunteer.id}
           position={[volunteer.lat, volunteer.lng]}
           icon={volunteerIcon}
         >
-          <Popup>
-            ❤️ Gönüllü: {volunteer.name}
-          </Popup>
+          <Popup>❤️ Gönüllü: {volunteer.name}</Popup>
         </Marker>
       ))}
 
-      {/* OED Markerları */}
       {oeds.map((oed) => {
         const isNearest = nearestOed?.id === oed.id;
 

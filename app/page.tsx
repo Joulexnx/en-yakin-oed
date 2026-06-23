@@ -4,11 +4,11 @@ import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { oeds } from "./data/oeds";
 import { getDistance } from "../lib/distance";
-
 import TYDModal from "../components/TYDModal";
 import VolunteerModal from "../components/VolunteerModal";
 import NearbyVolunteers from "../components/NearbyVolunteers";
 import { supabase } from "../lib/supabase";
+import OneSignal from "react-onesignal";
 
 const AEDMap = dynamic(() => import("../components/AEDMap"), {
   ssr: false,
@@ -25,9 +25,9 @@ export default function Home() {
 
   const [volunteerName, setVolunteerName] = useState("");
   const [volunteers, setVolunteers] = useState<any[]>([]);
-const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
+  const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
+  const [playerId, setPlayerId] = useState("");
 
-  // Supabase'den gönüllüleri çek
   const loadVolunteers = async () => {
     const { data, error } = await supabase
       .from("volunteers")
@@ -41,9 +41,91 @@ const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
     setVolunteers(data || []);
   };
 
-  useEffect(() => {
+  const startLiveTracking = () => {
+    const volunteerId = localStorage.getItem("volunteer_id");
+    if (!volunteerId) return null;
+
+    const id = navigator.geolocation.watchPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        setLatitude(lat);
+        setLongitude(lng);
+
+        await supabase
+          .from("volunteers")
+          .update({
+            lat,
+            lng,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", volunteerId);
+      },
+      (error) => console.log(error),
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      }
+    );
+
+    return id;
+  };
+
+useEffect(() => {
+  async function initOneSignal() {
+    try {
+      console.log("ONESIGNAL INIT BAŞLADI");
+
+      await OneSignal.init({
+        appId: "3628049c-37d2-483e-afe9-f6eafae5761a",
+        allowLocalhostAsSecureOrigin: true,
+        serviceWorkerPath: "/OneSignalSDKWorker.js",
+        serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
+      });
+
+      console.log("ONESIGNAL INIT TAMAM");
+
+      await OneSignal.Notifications.requestPermission();
+
+      setTimeout(() => {
+        const sub = OneSignal.User.PushSubscription;
+
+        console.log("SUB:", sub);
+
+        if (sub?.id) {
+          console.log("PLAYER ID:", sub.id);
+          setPlayerId(sub.id);
+        }
+      }, 5000);
+    } catch (error) {
+      console.log("ONESIGNAL ERROR:", error);
+    }
+  }
+
+  initOneSignal();
+  loadVolunteers();
+
+  let geoWatchId: number | null = null;
+  const volunteerId = localStorage.getItem("volunteer_id");
+
+  if (volunteerId) {
+    geoWatchId = startLiveTracking();
+  }
+
+  const interval = setInterval(() => {
     loadVolunteers();
-  }, []);
+  }, 10000);
+
+  return () => {
+    clearInterval(interval);
+
+    if (geoWatchId !== null) {
+      navigator.geolocation.clearWatch(geoWatchId);
+    }
+  };
+}, []);
 
   const getLocation = () => {
     setLoading(true);
@@ -74,22 +156,35 @@ const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
   };
 
   const registerVolunteer = async () => {
-    if (!volunteerName) return alert("Ad gir");
-    if (!latitude || !longitude) return alert("Önce konum al");
+  console.log("REGISTER PLAYER ID:", playerId);
 
-    const { error } = await supabase
+  if (!playerId) {
+    alert("Bildirim sistemi henüz hazır değil. 5-10 saniye bekle.");
+    return;
+  }
+
+  if (!volunteerName) return alert("Ad gir");
+  if (!latitude || !longitude) return alert("Önce konum al");
+
+    const { data, error } = await supabase
       .from("volunteers")
       .insert({
         name: volunteerName,
         lat: latitude,
         lng: longitude,
         certified: true,
-      });
+        player_id: playerId,
+      })
+      .select()
+      .single();
 
     if (error) {
       alert(error.message);
       return;
     }
+
+    localStorage.setItem("volunteer_id", String(data.id));
+    startLiveTracking();
 
     setVolunteerName("");
     setShowVolunteerModal(false);
@@ -180,47 +275,50 @@ const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
             <div className="flex justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-bold">En Yakın OED</h2>
+
                 <p className="mt-2 text-lg font-medium">
                   📍 {nearestOed.name}
                 </p>
+
                 <p className="text-gray-500">
                   İlçe: {nearestOed.district}
                 </p>
+
                 <p className="mt-2 text-green-600 font-bold">
                   Mesafe: {nearestOed.distance.toFixed(2)} km
                 </p>
               </div>
 
-             <div className="flex flex-col gap-3 min-w-[220px]">
-  <a
-    href={`https://www.google.com/maps/dir/${latitude},${longitude}/${nearestOed.lat},${nearestOed.lng}`}
-    target="_blank"
-    className="bg-blue-600 hover:bg-blue-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
-  >
-    🧭 Yol Tarifi
-  </a>
+              <div className="flex flex-col gap-3 min-w-[220px]">
+                <a
+                  href={`https://www.google.com/maps/dir/${latitude},${longitude}/${nearestOed.lat},${nearestOed.lng}`}
+                  target="_blank"
+                  className="bg-blue-600 hover:bg-blue-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+                >
+                  🧭 Yol Tarifi
+                </a>
 
-  <button
-    onClick={emergencyCall}
-    className="bg-orange-500 hover:bg-orange-600 transition text-black px-8 py-4 rounded-2xl font-bold shadow-lg text-center w-full"
-  >
-    🚨 Acil Çağrı
-  </button>
+                <button
+                  onClick={emergencyCall}
+                  className="bg-orange-500 hover:bg-orange-600 transition text-black px-8 py-4 rounded-2xl font-bold shadow-lg text-center w-full"
+                >
+                  🚨 Acil Çağrı
+                </button>
 
-  <a
-    href="tel:112"
-    className="bg-red-600 hover:bg-red-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
-  >
-    🚑 112 Ara
-  </a>
-</div>
+                <a
+                  href="tel:112"
+                  className="bg-red-600 hover:bg-red-700 transition text-white px-8 py-4 rounded-2xl font-bold shadow-lg text-center"
+                >
+                  🚑 112 Ara
+                </a>
+              </div>
             </div>
           </div>
         )}
 
         {nearbyVolunteers.length > 0 && (
-  <NearbyVolunteers volunteers={nearbyVolunteers} />
-)}
+          <NearbyVolunteers volunteers={nearbyVolunteers} />
+        )}
 
         <div className="mt-6 rounded-3xl overflow-hidden shadow-2xl border border-white w-full">
           {latitude && longitude ? (
