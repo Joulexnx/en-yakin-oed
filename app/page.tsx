@@ -125,6 +125,19 @@ useEffect(() => {
       navigator.geolocation.clearWatch(geoWatchId);
     }
   };
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  const lat = params.get("lat");
+  const lng = params.get("lng");
+
+  if (lat && lng) {
+    setLatitude(Number(lat));
+    setLongitude(Number(lng));
+  }
+}, []);
+
 }, []);
 
   const getLocation = () => {
@@ -223,7 +236,9 @@ useEffect(() => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      playerIds,
+  playerIds,
+  latitude,
+  longitude,
     }),
   });
 
